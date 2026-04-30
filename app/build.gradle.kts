@@ -12,6 +12,7 @@ plugins {
     alias { libs.plugins.kotlin.parcelize }
     alias(libs.plugins.ksp)
 }
+
 val enabledPlayAppMode: String by project
 val enabledAnalytics: String by project
 val baiduStatId: String = project.findProperty("as.baidu.stat.id")?.toString() ?: ""
@@ -34,9 +35,10 @@ android {
         buildConfigField("String", "BAIDU_STAT_ID", """"$baiduStatId"""".trimIndent())
         buildConfigField("String", "GIT_COMMIT_HASH", """"$gitCommitHash"""".trimIndent())
         ndk {
-            abiFilters += listOf("armeabi-v7a", "arm64-v8a","x86_64")
+            abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86_64")
         }
     }
+
     signingConfigs {
         create("BILIBILIASSigningConfig") {
             enableV3Signing = true
@@ -60,12 +62,12 @@ android {
             versionNameSuffix = BILIBILIASBuildType.ALPHA.versionNameSuffix
             buildConfigField("boolean", "ENABLED_PLAY_APP_MODE", "false")
             resValue("string", "app_channel", "Alpha")
-            // 动态签名配置
-            val runnerTemp = System.getenv("RUNNER_TEMP")
-            signingConfig = if (runnerTemp != null && file("$runnerTemp/mxjs-debug.jks").exists()) {
-                // CI 环境
+
+            // 动态签名：CI 环境使用注入的 keystore，本地回退到 debug
+            val ciKeystorePath = System.getenv("ALPHA_KEYSTORE_PATH")
+            signingConfig = if (ciKeystorePath != null && file(ciKeystorePath).exists()) {
                 signingConfigs.create("ci-alpha").apply {
-                    storeFile = file("$runnerTemp/mxjs-debug.jks")
+                    storeFile = file(ciKeystorePath)
                     storePassword = System.getenv("ALPHA_KEYSTORE_PASSWORD")
                     keyAlias = System.getenv("ALPHA_KEY_ALIAS")
                     keyPassword = System.getenv("ALPHA_KEY_PASSWORD")
@@ -73,10 +75,8 @@ android {
                     enableV4Signing = true
                 }
             } else {
-                // 本地环境
                 signingConfigs.getByName("debug")
             }
-
         }
 
         // 提交Google Play使用
@@ -87,7 +87,6 @@ android {
             buildConfigField("boolean", "ENABLED_PLAY_APP_MODE", enabledPlayAppMode)
             signingConfig = signingConfigs.getByName("BILIBILIASSigningConfig")
             resValue("string", "app_channel", "Beta")
-
         }
     }
 
@@ -108,7 +107,6 @@ android {
             buildConfigField("boolean", "ENABLED_PLAY_APP_MODE", enabledPlayAppMode)
             buildConfigField("boolean", "ENABLED_ANALYTICS", enabledAnalytics)
         }
-
     }
 
     splits {
@@ -125,8 +123,8 @@ android {
         compose = true
         resValues = true
     }
-
 }
+
 if (!enabledPlayAppMode.toBoolean() && enabledAnalytics.toBoolean()) {
     /**
      * 百度统计静态清单合并
@@ -182,8 +180,6 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
-
-
 }
 
 // 百度统计依赖配置
@@ -197,6 +193,7 @@ fun DependencyHandlerScope.baiduStatDependencies() {
         }
     }
 }
+
 // Google Play 依赖配置
 fun DependencyHandlerScope.googlePlayDependencies(enabled: Boolean) {
     val googlePlayLibs = listOf(
@@ -211,7 +208,6 @@ fun DependencyHandlerScope.googlePlayDependencies(enabled: Boolean) {
         }
     }
 }
-
 
 // Firebase 依赖配置
 fun DependencyHandlerScope.firebaseDependencies(enabled: Boolean) {

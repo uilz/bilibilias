@@ -28,11 +28,29 @@ jobs:
       - name: Setup Gradle
         uses: gradle/gradle-build-action@v3
 
+      # ✅ 新增步骤：解密 keystore
+      - name: Decode Alpha Keystore
+        run: |
+          echo "${{ secrets.ALPHA_KEYSTORE_BASE64 }}" | base64 -d > ${{ github.workspace }}/alpha-keystore.jks
+
       - name: Grant execute permission for gradlew
         run: chmod +x ./gradlew
 
       - name: Clean
         run: ./gradlew clean
 
+      # ✅ 修改步骤：构建时注入签名环境变量
       - name: Assemble alphaRelease
         run: ./gradlew :app:assembleAlphaRelease --stacktrace --info
+        env:
+          ALPHA_KEYSTORE_PATH: ${{ github.workspace }}/alpha-keystore.jks
+          ALPHA_KEYSTORE_PASSWORD: ${{ secrets.ALPHA_KEYSTORE_PASSWORD }}
+          ALPHA_KEY_ALIAS: ${{ secrets.ALPHA_KEY_ALIAS }}
+          ALPHA_KEY_PASSWORD: ${{ secrets.ALPHA_KEY_PASSWORD }}
+
+      # ✅ 可选：上传 APK 到构建产物
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-alpha-release
+          path: app/build/outputs/apk/alpha/release/*.apk
